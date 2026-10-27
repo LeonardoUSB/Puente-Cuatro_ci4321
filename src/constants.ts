@@ -1,7 +1,7 @@
 // Scene constants: geometry, colors and canvas settings. main.ts holds the WebGL code and the game loop.
 
-/** Background color #1b1e2b as linear floats in [0, 1]. */
-export const CLEAR_COLOR: readonly [number, number, number, number] = [0x1b / 255, 0x1e / 255, 0x2b / 255, 1];
+//Usar clear color como color del cielo
+export const CLEAR_COLOR: readonly [number, number, number, number] = [0x4f / 255, 0xa8 / 255, 0xe0 / 255, 1];
 
 /** Drawing buffer size in pixels, 4:3. CSS scales the canvas to fit the window; the buffer stays fixed. */
 export const CANVAS_WIDTH = 1024;
@@ -60,6 +60,23 @@ export const CUBE_INDICES = new Uint16Array([
   16, 17, 18,  16, 18, 19, // +Y
   20, 21, 22,  20, 22, 23, // -Y
 ]);
+
+export const TABLE = new Float32Array([
+// x    y     z    nx  ny  nz
+  -5,   0,   20,   0,  1,  0,  // v0 frente-izquierda
+   5,   0,   20,   0,  1,  0,  // v1 frente-derecha
+   5,   0,  -20,   0,  1,  0,  // v2 fondo-derecha
+  -5,   0,  -20,   0,  1,  0,  // v3 fondo-izquierda
+]);
+
+//Dos triángulos, CCW visto desde +Y
+export const TABLE_INDEX = new Uint16Array([
+  0, 1, 2,
+  0, 2, 3,
+]);
+
+export const FLOOR_COLOR: readonly [number, number, number, number] = [0x8b / 255, 0x5a / 255, 0x2b / 255, 1];
+export const FLOOR_AMBIENT: readonly [number, number, number, number] = [0x5a / 255, 0x3a / 255, 0x1b / 255, 1];
 
 export const STRIDE_BYTES = 6 * 4; // 4 bytes per float (Float32)
 export const NORMAL_OFFSET_BYTES = 3 * 4;

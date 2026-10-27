@@ -9,6 +9,10 @@ import {
   COLORS,
   CUBE_INDICES,
   CUBE_VERTICES,
+  TABLE,
+  TABLE_INDEX,
+  FLOOR_COLOR,
+  FLOOR_AMBIENT,
   NORMAL_OFFSET_BYTES,
   STRIDE_BYTES,
 } from './constants';
@@ -78,10 +82,17 @@ function setupScene(ff: FF): void {
   ff.setLight(0, { position: [1, 1, 0.5, 0], diffuse: [1, 1, 1, 1] });
   ff.enableLight(0);
 
-  const view = mat4.lookAt(mat4.create(), [0, 1.5, 4], [0, 0, 0], [0, 1, 0]);
+  const view = mat4.lookAt(mat4.create(),
+                          [0, 2.0, 4],  // posicion (0, 1.5, 4)
+                          [0, 1.0, -4.0],    // donde apunta
+                          [0, 1, 0]);   // orientacion 
   ff.setViewMatrix(view);
-  // Aspect = width / height of the drawing buffer (4:3). A wrong aspect stretches the cube.
-  const projection = mat4.perspective(mat4.create(), Math.PI / 4, CANVAS_WIDTH / CANVAS_HEIGHT, 0.1, 100);
+
+  const projection = mat4.perspective(mat4.create(),
+                          Math.PI / 4,                  //apertura de la camara
+                          CANVAS_WIDTH / CANVAS_HEIGHT, //aspec ratio
+                          0.1,                          //distancia minima visible
+                          100);                         //distancia maxima visible
   ff.setProjectionMatrix(projection);
 }
 
@@ -132,16 +143,23 @@ function update(dt: number): void {
 const model = mat4.create();
 const normalMatrix = mat3.create();
 
-function render(gl: WebGL2RenderingContext, ff: FF, vao: WebGLVertexArrayObject): void {
+function render(gl: WebGL2RenderingContext, ff: FF, vao: WebGLVertexArrayObject, tableVao:WebGLVertexArrayObject): void {
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  //Suelo 
+  ff.setMaterial({ ambient: FLOOR_AMBIENT, diffuse: FLOOR_COLOR });
+  mat4.identity(model);
+  ff.setModelMatrix(model);
+  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
+  gl.bindVertexArray(tableVao);
+  ff.drawElements(gl.TRIANGLES, TABLE_INDEX.length, gl.UNSIGNED_SHORT, 0);
+
+  //Cubo
   const color = COLORS[state.colorIndex];
   ff.setMaterial({ ambient: color, diffuse: color }); // specular stays at the FF default (0)
-
   mat4.fromYRotation(model, state.angle);
   ff.setModelMatrix(model);
   // FF needs the normal matrix for lit normals: setModelMatrix does not update it.
   ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
-
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.bindVertexArray(vao);
   ff.drawElements(gl.TRIANGLES, CUBE_INDICES.length, gl.UNSIGNED_SHORT, 0);
 }
@@ -149,9 +167,15 @@ function render(gl: WebGL2RenderingContext, ff: FF, vao: WebGLVertexArrayObject)
 function run(canvas: HTMLCanvasElement): void {
   const gl = getContext(canvas);
   const ff = createFixedFunction(gl, { debug: true });
+  //Cubo
   const vertices = createVertexBuffer(gl, CUBE_VERTICES);
   const indices = createIndexBuffer(gl, CUBE_INDICES);
   const vao = createVAO(gl, vertices, indices);
+  //Mesa
+  const tableVerterx = createVertexBuffer(gl, TABLE);
+  const tableIndex  = createIndexBuffer(gl, TABLE_INDEX);
+  const tableVao = createVAO(gl, tableVerterx, tableIndex);
+
   setupState(gl, canvas);
   setupScene(ff);
   setupInput();
@@ -165,7 +189,7 @@ function run(canvas: HTMLCanvasElement): void {
     last = now;
     processInput();
     update(dt);
-    render(gl, ff, vao);
+    render(gl, ff, vao, tableVao);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
