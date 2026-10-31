@@ -7,8 +7,6 @@ import {
   CANVAS_WIDTH,
   CLEAR_COLOR,
   COLORS,
-  CUBE_INDICES,
-  CUBE_VERTICES,
   TABLE,
   TABLE_INDEX,
   FLOOR_COLOR,
@@ -16,6 +14,9 @@ import {
   NORMAL_OFFSET_BYTES,
   STRIDE_BYTES,
 } from './constants';
+import { createBox } from './geometry/box';
+import { createCylinder } from './geometry/cylinder';
+import { createSphere } from './geometry/sphere';
 
 type FF = ReturnType<typeof createFixedFunction>;
 
@@ -143,7 +144,16 @@ function update(dt: number): void {
 const model = mat4.create();
 const normalMatrix = mat3.create();
 
-function render(gl: WebGL2RenderingContext, ff: FF, vao: WebGLVertexArrayObject, tableVao:WebGLVertexArrayObject): void {
+function render(
+    gl: WebGL2RenderingContext,
+    ff: FF,
+    cubeVao: WebGLVertexArrayObject,
+    tableVao: WebGLVertexArrayObject,
+    cylinderVao: WebGLVertexArrayObject,
+    cylinderIndexCount: number,
+    sphereVao: WebGLVertexArrayObject,
+    sphereIndexCount: number,
+  ): void {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   //Suelo 
   ff.setMaterial({ ambient: FLOOR_AMBIENT, diffuse: FLOOR_COLOR });
@@ -158,19 +168,50 @@ function render(gl: WebGL2RenderingContext, ff: FF, vao: WebGLVertexArrayObject,
   ff.setMaterial({ ambient: color, diffuse: color }); // specular stays at the FF default (0)
   mat4.fromYRotation(model, state.angle);
   ff.setModelMatrix(model);
-  // FF needs the normal matrix for lit normals: setModelMatrix does not update it.
   ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
-  gl.bindVertexArray(vao);
-  ff.drawElements(gl.TRIANGLES, CUBE_INDICES.length, gl.UNSIGNED_SHORT, 0);
+  gl.bindVertexArray(cubeVao);
+  ff.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+
+  //Cilindro
+  ff.setMaterial({ ambient: [0.2, 0.3, 0.2, 1], diffuse: [0.4, 0.75, 0.4, 1] });
+  mat4.identity(model);
+  mat4.translate(model, model, [2, 0.5, 0]);   // al lado del cubo
+  mat4.rotateY(model, model, state.angle);      // gira como el cubo para verse
+  ff.setModelMatrix(model);
+  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
+  gl.bindVertexArray(cylinderVao);
+  ff.drawElements(gl.TRIANGLES, cylinderIndexCount, gl.UNSIGNED_SHORT, 0);
+
+  // ─── Esfera (temporal, verificación) ───
+  ff.setMaterial({ ambient: [0.35, 0.15, 0.10, 1], diffuse: [0.85, 0.35, 0.20, 1] });
+  mat4.identity(model);
+  mat4.translate(model, model, [-2, 0.6, 0]);  // al otro lado del cubo
+  mat4.rotateY(model, model, state.angle);     // misma rotación para ver la superficie
+  ff.setModelMatrix(model);
+  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
+  gl.bindVertexArray(sphereVao);
+  ff.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);
 }
 
 function run(canvas: HTMLCanvasElement): void {
   const gl = getContext(canvas);
   const ff = createFixedFunction(gl, { debug: true });
   //Cubo
-  const vertices = createVertexBuffer(gl, CUBE_VERTICES);
-  const indices = createIndexBuffer(gl, CUBE_INDICES);
-  const vao = createVAO(gl, vertices, indices);
+  const cubeData    = createBox(1, 1, 1);
+  const cubeVBuffer = createVertexBuffer(gl, cubeData.vertices);
+  const cubeIBuffer = createIndexBuffer(gl, cubeData.indices);
+  const cubeVao     = createVAO(gl, cubeVBuffer, cubeIBuffer);
+  //Cilindro
+  const cylinderData    = createCylinder(0.5, 1, 32);
+  const cylinderVBuffer = createVertexBuffer(gl, cylinderData.vertices);
+  const cylinderIBuffer = createIndexBuffer(gl, cylinderData.indices);
+  const cylinderVao     = createVAO(gl, cylinderVBuffer, cylinderIBuffer);
+
+  const sphereData    = createSphere(0.6, 24, 32);
+  const sphereVBuffer = createVertexBuffer(gl, sphereData.vertices);
+  const sphereIBuffer = createIndexBuffer(gl, sphereData.indices);
+  const sphereVao     = createVAO(gl, sphereVBuffer, sphereIBuffer);
+
   //Mesa
   const tableVerterx = createVertexBuffer(gl, TABLE);
   const tableIndex  = createIndexBuffer(gl, TABLE_INDEX);
@@ -189,7 +230,12 @@ function run(canvas: HTMLCanvasElement): void {
     last = now;
     processInput();
     update(dt);
-    render(gl, ff, vao, tableVao);
+    render(
+    gl, ff,
+    cubeVao, tableVao,
+    cylinderVao, cylinderData.indices.length,
+    sphereVao,   sphereData.indices.length,
+  );
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
