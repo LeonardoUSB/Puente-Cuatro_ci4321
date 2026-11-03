@@ -3,11 +3,7 @@ import type { MeshData } from './types';
 
 // Esfera centrada en el origen.
 
-export function createSphere(
-  radius: number,
-  latSegments: number,
-  lonSegments: number,
-): MeshData {
+export function createSphere(radius: number, latSegments: number, lonSegments: number) : MeshData {
   const r = radius;
   const lat = Math.max(2, latSegments);
   const lon = Math.max(3, lonSegments);

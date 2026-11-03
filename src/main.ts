@@ -20,7 +20,7 @@ import { createSphere } from './geometry/sphere';
 
 type FF = ReturnType<typeof createFixedFunction>;
 
-const ROTATION_SPEED = 0.8; 
+const ROTATION_SPEED = 0.0; 
 const MAX_DT = 0.1; // seconds
 
 // Step 1. Get the WebGL2 context.
@@ -152,6 +152,8 @@ function render(
     cylinderVao: WebGLVertexArrayObject,
     cylinderIndexCount: number,
     sphereVao: WebGLVertexArrayObject,
+    sphereVao2: WebGLVertexArrayObject,
+    sphereVao3: WebGLVertexArrayObject,
     sphereIndexCount: number,
   ): void {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -164,7 +166,7 @@ function render(
   ff.drawElements(gl.TRIANGLES, TABLE_INDEX.length, gl.UNSIGNED_SHORT, 0);
 
   //Cubo
-  const color = COLORS[state.colorIndex];
+  const color: [number, number, number, number] = [0.2, 0.2, 0.2, 1];
   ff.setMaterial({ ambient: color, diffuse: color }); // specular stays at the FF default (0)
   mat4.fromYRotation(model, state.angle);
   ff.setModelMatrix(model);
@@ -173,24 +175,52 @@ function render(
   ff.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
 
   //Cilindro
-  ff.setMaterial({ ambient: [0.2, 0.3, 0.2, 1], diffuse: [0.4, 0.75, 0.4, 1] });
+  const colorCilinder: [number, number, number, number] = [0.2, 0.2, 0.2, 1];
+  ff.setMaterial({ ambient: colorCilinder, diffuse: colorCilinder });
   mat4.identity(model);
-  mat4.translate(model, model, [2, 0.5, 0]);   // al lado del cubo
-  mat4.rotateY(model, model, state.angle);      // gira como el cubo para verse
+  mat4.translate(model, model, [0, 1.05, 0]);   // al lado del cubo
+  mat4.rotateX(model, model, 50);      // gira como el cubo para verse
   ff.setModelMatrix(model);
   ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
   gl.bindVertexArray(cylinderVao);
   ff.drawElements(gl.TRIANGLES, cylinderIndexCount, gl.UNSIGNED_SHORT, 0);
 
   // ─── Esfera (temporal, verificación) ───
-  ff.setMaterial({ ambient: [0.35, 0.15, 0.10, 1], diffuse: [0.85, 0.35, 0.20, 1] });
+  const colorSphere: [number, number, number, number] = [0.2, 0.2, 0.2, 1];
+  ff.setMaterial({ ambient: colorSphere, diffuse: colorSphere });
   mat4.identity(model);
-  mat4.translate(model, model, [-2, 0.6, 0]);  // al otro lado del cubo
-  mat4.rotateY(model, model, state.angle);     // misma rotación para ver la superficie
+  mat4.translate(model, model, [0, 0.52, 0]);  // al otro lado del cubo
   ff.setModelMatrix(model);
   ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
   gl.bindVertexArray(sphereVao);
   ff.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);
+
+  // ─── Esfera 2 ───
+  ff.setMaterial({ ambient: [0.35, 0.15, 0.10, 1], diffuse: [0.85, 0.35, 0.20, 1] });
+  mat4.identity(model);
+  mat4.translate(model, model, [-1.5, 1.55, -3]);  // al otro lado del cubo
+  ff.setModelMatrix(model);
+  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
+  gl.bindVertexArray(sphereVao2);
+  ff.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);
+
+  // ─── Esfera 3 ───
+  ff.setMaterial({ ambient: [0.35, 0.15, 0.10, 1], diffuse: [0.85, 0.35, 0.20, 1] });
+  mat4.identity(model);
+  mat4.translate(model, model, [-1.5, 2, -3]);  // al otro lado del cubo
+  ff.setModelMatrix(model);
+  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
+  gl.bindVertexArray(sphereVao3);
+  ff.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);
+
+  // ─── Esfera 4 ───
+  ff.setMaterial({ ambient: [0.35, 0.15, 0.10, 1], diffuse: [0.85, 0.35, 0.20, 1] });
+  mat4.identity(model);
+  mat4.translate(model, model, [2.5, 2, -4]);  // al otro lado del cubo
+  ff.setModelMatrix(model);
+  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
+  gl.bindVertexArray(sphereVao3);
+  ff.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);  
 }
 
 function run(canvas: HTMLCanvasElement): void {
@@ -202,15 +232,27 @@ function run(canvas: HTMLCanvasElement): void {
   const cubeIBuffer = createIndexBuffer(gl, cubeData.indices);
   const cubeVao     = createVAO(gl, cubeVBuffer, cubeIBuffer);
   //Cilindro
-  const cylinderData    = createCylinder(0.5, 1, 32);
+  const cylinderData    = createCylinder(0.065, 0.5, 15);
   const cylinderVBuffer = createVertexBuffer(gl, cylinderData.vertices);
   const cylinderIBuffer = createIndexBuffer(gl, cylinderData.indices);
   const cylinderVao     = createVAO(gl, cylinderVBuffer, cylinderIBuffer);
-
-  const sphereData    = createSphere(0.6, 24, 32);
+  //Esfera
+  const sphereData    = createSphere(0.35, 24, 32);
   const sphereVBuffer = createVertexBuffer(gl, sphereData.vertices);
   const sphereIBuffer = createIndexBuffer(gl, sphereData.indices);
   const sphereVao     = createVAO(gl, sphereVBuffer, sphereIBuffer);
+
+  //Esfera2
+  const sphereData2    = createSphere(0.50, 24, 32);
+  const sphereVBuffer2 = createVertexBuffer(gl, sphereData2.vertices);
+  const sphereIBuffer2 = createIndexBuffer(gl, sphereData2.indices);
+  const sphereVao2     = createVAO(gl, sphereVBuffer2, sphereIBuffer2);
+
+  //Esfera3
+  const sphereData3    = createSphere(0.50, 24, 32);
+  const sphereVBuffer3 = createVertexBuffer(gl, sphereData3.vertices);
+  const sphereIBuffer3 = createIndexBuffer(gl, sphereData3.indices);
+  const sphereVao3     = createVAO(gl, sphereVBuffer3, sphereIBuffer3);  
 
   //Mesa
   const tableVerterx = createVertexBuffer(gl, TABLE);
@@ -234,7 +276,7 @@ function run(canvas: HTMLCanvasElement): void {
     gl, ff,
     cubeVao, tableVao,
     cylinderVao, cylinderData.indices.length,
-    sphereVao,   sphereData.indices.length,
+    sphereVao, sphereVao2, sphereVao3,  sphereData.indices.length,
   );
     requestAnimationFrame(frame);
   }
