@@ -6,13 +6,17 @@ import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   CLEAR_COLOR,
-  COLORS,
   TABLE,
   TABLE_INDEX,
   FLOOR_COLOR,
   FLOOR_AMBIENT,
   NORMAL_OFFSET_BYTES,
   STRIDE_BYTES,
+  BODY_HEIGHT, TURRET_RADIUS, CANNON_RADIUS, CANNON_LENGTH, BULLET_RADIUS,  
+  TURRET_AMBIENT, TURRET_COLOR ,CANNON_AMBIENT, CANNON_COLOR, BULLET_AMBIENT, BULLET_COLOR, INITIAL_ELEVATION, BODY_DEPTH,
+  BAR_WIDTH,BAR_HEIGHT, BAR_DEPTH, BAR_SPACING, BAR_OFF_AMBIENT, BAR_OFF_COLOR, BAR_ON_AMBIENT, BAR_ON_COLOR, FORCE_MULTIPLIERS,
+  X_MIN, X_MAX, MIN_ELEVATION, MAX_ELEVATION, HORIZONTAL_SPEED, ELEVATION_SPEED, BASE_SPEED, GRAVITY
+
 } from './constants';
 import { createBox } from './geometry/box';
 import { createCylinder } from './geometry/cylinder';
@@ -20,7 +24,6 @@ import { createSphere } from './geometry/sphere';
 
 type FF = ReturnType<typeof createFixedFunction>;
 
-const ROTATION_SPEED = 0.0; 
 const MAX_DT = 0.1; // seconds
 
 // Step 1. Get the WebGL2 context.
@@ -106,36 +109,137 @@ function setupScene(ff: FF): void {
 // ---------------------------------------------------------------------------
 
 // Game state: everything the simulation needs, nothing about WebGL.
-const state = { angle: 0, colorIndex: 0, rotating: true };
+const state = {
+  x: 0,
+  elev: INITIAL_ELEVATION,
+  force: 1,                        
+  bullet: {
+    status: 'ready' as 'ready' | 'flying',
+    pos: [0, 0, 0] as [number, number, number],
+    vel: [0, 0, 0] as [number, number, number],
+  },
+};
 
-// Input: the keydown listener only records presses. processInput handles them later, once per frame.
+// keydown marca true. keyup marca false.
+// update() lee estos flags cada frame y mueve. No movemos en el evento.
+// ═══════════════════════════════════════════════════════════════
+const keys = {
+  left:  false,
+  right: false,
+  up:    false,
+  down:  false,
+};
+
 let spacePressed = false;
-let rPressed = false;
+let rPressed     = false;
+let forceKey = 0;
 
 function setupInput(): void {
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') e.preventDefault(); // stops the page from scrolling
-    if (e.repeat) return; // holding a key counts as one press
-    if (e.code === 'Space') spacePressed = true;
-    if (e.code === 'KeyR') rPressed = true;
+    // Evita que las flechas hagan scroll en la pagina
+    if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+
+    if (e.repeat) return;
+
+    if (e.code === 'ArrowLeft')  keys.left  = true;
+    if (e.code === 'ArrowRight') keys.right = true;
+    if (e.code === 'ArrowUp')    keys.up    = true;
+    if (e.code === 'ArrowDown')  keys.down  = true;
+    if (e.code === 'Space')    spacePressed = true;
+    if (e.code === 'KeyR')     rPressed     = true;
+    if (e.code === 'Digit1') forceKey = 1;
+    if (e.code === 'Digit2') forceKey = 2;
+    if (e.code === 'Digit3') forceKey = 3;
+    if (e.code === 'KeyF')   forceKey = 4;
   });
-  // Research: key-state polling with edge detection. Store which keys are down, and compare with
-  // the last frame: pressed = down now && !down last frame. When does it fit better than events?
+
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowLeft')  keys.left  = false;
+    if (e.code === 'ArrowRight') keys.right = false;
+    if (e.code === 'ArrowUp')    keys.up    = false;
+    if (e.code === 'ArrowDown')  keys.down  = false;
+  });
 }
 
-// Loop phase 1. Space selects the next color. R toggles the rotation.
-// Each flag is cleared after use, so each press counts once.
-//
 function processInput(): void {
-  if (spacePressed) state.colorIndex = (state.colorIndex + 1) % COLORS.length;
-  if (rPressed) state.rotating = !state.rotating;
+  // Cambio de fuerza 
+  if (forceKey === 4) {
+    state.force = (state.force % 3) + 1;   // 1 -> 2 -> 3 -> 1
+  } else if (forceKey >= 1 && forceKey <= 3) {
+    state.force = forceKey;
+  }
+  forceKey = 0; // consumir flag
+
+  // Disparar 
+  if (spacePressed && state.bullet.status === 'ready') {
+    state.bullet.status = 'flying';
+
+    const L = CANNON_LENGTH;
+    state.bullet.pos = [
+      state.x,
+      BODY_HEIGHT + L * Math.sin(state.elev),
+      -L * Math.cos(state.elev),
+    ];
+
+    const speed = BASE_SPEED * FORCE_MULTIPLIERS[state.force - 1];
+    state.bullet.vel = [
+      0,
+      speed * Math.sin(state.elev),
+      -speed * Math.cos(state.elev),
+    ];
+  }
+
+  // Reiniciar 
+  if (rPressed) {
+    state.bullet.status = 'ready';
+    state.bullet.pos = [0, 0, 0];       
+    state.x = 0;
+    state.elev = INITIAL_ELEVATION;
+  }
+
+  // Consumir flags
   spacePressed = false;
-  rPressed = false;
+  rPressed     = false;
 }
 
-// Loop phase 2. 
+
 function update(dt: number): void {
-  if (state.rotating) state.angle += ROTATION_SPEED * dt; // paused: the angle keeps its value
+  // Movimiento horizontal 
+  let dx = 0;
+  if (keys.left)  dx -= 1;
+  if (keys.right) dx += 1;
+  state.x += dx * HORIZONTAL_SPEED * dt;
+
+    // Fisica del proyectil 
+  if (state.bullet.status === 'flying') {
+    // Gravedad 
+    state.bullet.vel[1] -= GRAVITY * dt;
+
+    // Integrar posicion
+    state.bullet.pos[0] += state.bullet.vel[0] * dt;
+    state.bullet.pos[1] += state.bullet.vel[1] * dt;
+    state.bullet.pos[2] += state.bullet.vel[2] * dt;
+
+    // Toco el suelo?
+    if (state.bullet.pos[1] <= BULLET_RADIUS) {
+      state.bullet.pos[1] = BULLET_RADIUS; 
+      state.bullet.status = 'ready';       
+    }
+  }
+
+  // no se sale de los limites
+  if (state.x < X_MIN) state.x = X_MIN;
+  if (state.x > X_MAX) state.x = X_MAX;
+
+  // Elevacion
+  let de = 0;
+  if (keys.up)   de += 1;
+  if (keys.down) de -= 1;
+  state.elev += de * ELEVATION_SPEED * dt;
+
+  // limite entre 5° y 90°
+  if (state.elev < MIN_ELEVATION) state.elev = MIN_ELEVATION;
+  if (state.elev > MAX_ELEVATION) state.elev = MAX_ELEVATION;
 }
 
 // Loop phase 3. Draw the current state. render reads the state and never changes it.
@@ -144,20 +248,26 @@ function update(dt: number): void {
 const model = mat4.create();
 const normalMatrix = mat3.create();
 
+const objectives = [
+  { pos: [-2.0, 1.8, -5.0] as const, alive: true },
+  { pos: [ 0.5, 2.2, -6.5] as const, alive: true },
+  { pos: [ 2.5, 1.6, -4.5] as const, alive: true },
+];
+
 function render(
-    gl: WebGL2RenderingContext,
-    ff: FF,
-    cubeVao: WebGLVertexArrayObject,
-    tableVao: WebGLVertexArrayObject,
-    cylinderVao: WebGLVertexArrayObject,
-    cylinderIndexCount: number,
-    sphereVao: WebGLVertexArrayObject,
-    sphereVao2: WebGLVertexArrayObject,
-    sphereVao3: WebGLVertexArrayObject,
-    sphereIndexCount: number,
-  ): void {
+  gl: WebGL2RenderingContext,
+  ff: FF,
+  tableVao: WebGLVertexArrayObject,
+  bodyVao: WebGLVertexArrayObject,
+  barVao: WebGLVertexArrayObject,
+  turretVao: WebGLVertexArrayObject, turretIndexCount: number,
+  cannonVao: WebGLVertexArrayObject, cannonIndexCount: number,
+  bulletVao: WebGLVertexArrayObject, bulletIndexCount: number,
+  targetVao: WebGLVertexArrayObject, targetIndexCount: number,
+): void {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  //Suelo 
+
+  // Suelo 
   ff.setMaterial({ ambient: FLOOR_AMBIENT, diffuse: FLOOR_COLOR });
   mat4.identity(model);
   ff.setModelMatrix(model);
@@ -165,105 +275,141 @@ function render(
   gl.bindVertexArray(tableVao);
   ff.drawElements(gl.TRIANGLES, TABLE_INDEX.length, gl.UNSIGNED_SHORT, 0);
 
-  //Cubo
-  const color: [number, number, number, number] = [0.2, 0.2, 0.2, 1];
-  ff.setMaterial({ ambient: color, diffuse: color }); // specular stays at the FF default (0)
-  mat4.fromYRotation(model, state.angle);
+  // Cuerpo (cubo) 
+  ff.setMaterial({ ambient: TURRET_AMBIENT, diffuse: TURRET_COLOR });
+  mat4.identity(model);
+  mat4.translate(model, model, [state.x, BODY_HEIGHT / 2, 0]);
   ff.setModelMatrix(model);
   ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
-  gl.bindVertexArray(cubeVao);
+  gl.bindVertexArray(bodyVao);
   ff.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
 
-  //Cilindro
-  const colorCilinder: [number, number, number, number] = [0.2, 0.2, 0.2, 1];
-  ff.setMaterial({ ambient: colorCilinder, diffuse: colorCilinder });
+  // Torreta (esfera hundida a la mitad)
+  ff.setMaterial({ ambient: TURRET_AMBIENT, diffuse: TURRET_COLOR });
   mat4.identity(model);
-  mat4.translate(model, model, [0, 1.05, 0]);   // al lado del cubo
-  mat4.rotateX(model, model, 50);      // gira como el cubo para verse
+  mat4.translate(model, model, [state.x, BODY_HEIGHT, 0]); 
   ff.setModelMatrix(model);
   ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
-  gl.bindVertexArray(cylinderVao);
-  ff.drawElements(gl.TRIANGLES, cylinderIndexCount, gl.UNSIGNED_SHORT, 0);
+  gl.bindVertexArray(turretVao);
+  ff.drawElements(gl.TRIANGLES, turretIndexCount, gl.UNSIGNED_SHORT, 0);
 
-  // ─── Esfera (temporal, verificación) ───
-  const colorSphere: [number, number, number, number] = [0.2, 0.2, 0.2, 1];
-  ff.setMaterial({ ambient: colorSphere, diffuse: colorSphere });
+  // Cañon (sale del centro de la esfera)
+  ff.setMaterial({ ambient: CANNON_AMBIENT, diffuse: CANNON_COLOR });
   mat4.identity(model);
-  mat4.translate(model, model, [0, 0.52, 0]);  // al otro lado del cubo
+  mat4.translate(model, model, [state.x, BODY_HEIGHT, 0]); 
+  mat4.rotateX(model, model, state.elev - Math.PI / 2);
+  mat4.translate(model, model, [0, CANNON_LENGTH / 2, 0]);
   ff.setModelMatrix(model);
   ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
-  gl.bindVertexArray(sphereVao);
-  ff.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);
+  gl.bindVertexArray(cannonVao);
+  ff.drawElements(gl.TRIANGLES, cannonIndexCount, gl.UNSIGNED_SHORT, 0);
 
-  // ─── Esfera 2 ───
+  // Indicador de fuerza (3 barras en el cuerpo)
+  for (let i = 0; i < 3; i++) {
+    const isOn = i < state.force; // nivel 1 enciende i=0, nivel 2 enciende i=0,1...
+    
+    ff.setMaterial({
+      ambient: isOn ? BAR_ON_AMBIENT : BAR_OFF_AMBIENT,
+      diffuse: isOn ? BAR_ON_COLOR   : BAR_OFF_COLOR,
+    });
+
+    // Desplazamiento vertical para apilarlas (i=0 abajo, i=1 medio, i=2 arriba)
+    const yOffset = (i - 1) * (BAR_HEIGHT + BAR_SPACING);
+
+    mat4.identity(model);
+    //  Posicion X del tanque, Altura del centro del cubo + offset, Cara trasera del cubo (+Z)
+    mat4.translate(model, model, [
+      state.x, 
+      BODY_HEIGHT / 2 + yOffset, 
+      (BODY_DEPTH / 2) + (BAR_DEPTH / 2) // Empujamos hacia la cara que ve la camara
+    ]);
+    
+    ff.setModelMatrix(model);
+    ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
+    gl.bindVertexArray(barVao);
+    ff.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+  }
+
+  // Bala (boca del cañon) 
+  ff.setMaterial({ ambient: BULLET_AMBIENT, diffuse: BULLET_COLOR });
+  mat4.identity(model);
+  if (state.bullet.status === 'ready') {
+    // Pegada a la boca del cañon 
+    mat4.translate(model, model, [state.x, BODY_HEIGHT, 0]);
+    mat4.rotateX(model, model, state.elev - Math.PI / 2);
+    mat4.translate(model, model, [0, CANNON_LENGTH, 0]);
+  } else {
+    // Independiente en el mundo 
+    mat4.translate(model, model, state.bullet.pos);
+  }
+  ff.setModelMatrix(model);
+  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
+  gl.bindVertexArray(bulletVao);
+  ff.drawElements(gl.TRIANGLES, bulletIndexCount, gl.UNSIGNED_SHORT, 0);
+
+
+  // Objetivos 
   ff.setMaterial({ ambient: [0.35, 0.15, 0.10, 1], diffuse: [0.85, 0.35, 0.20, 1] });
-  mat4.identity(model);
-  mat4.translate(model, model, [-1.5, 1.55, -3]);  // al otro lado del cubo
-  ff.setModelMatrix(model);
-  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
-  gl.bindVertexArray(sphereVao2);
-  ff.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);
-
-  // ─── Esfera 3 ───
-  ff.setMaterial({ ambient: [0.35, 0.15, 0.10, 1], diffuse: [0.85, 0.35, 0.20, 1] });
-  mat4.identity(model);
-  mat4.translate(model, model, [-1.5, 2, -3]);  // al otro lado del cubo
-  ff.setModelMatrix(model);
-  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
-  gl.bindVertexArray(sphereVao3);
-  ff.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);
-
-  // ─── Esfera 4 ───
-  ff.setMaterial({ ambient: [0.35, 0.15, 0.10, 1], diffuse: [0.85, 0.35, 0.20, 1] });
-  mat4.identity(model);
-  mat4.translate(model, model, [2.5, 2, -4]);  // al otro lado del cubo
-  ff.setModelMatrix(model);
-  ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
-  gl.bindVertexArray(sphereVao3);
-  ff.drawElements(gl.TRIANGLES, sphereIndexCount, gl.UNSIGNED_SHORT, 0);  
+  for (const obj of objectives) {
+    if (!obj.alive) continue;
+    mat4.identity(model);
+    mat4.translate(model, model, obj.pos);
+    ff.setModelMatrix(model);
+    ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
+    gl.bindVertexArray(targetVao);
+    ff.drawElements(gl.TRIANGLES, targetIndexCount, gl.UNSIGNED_SHORT, 0);
+  }
 }
 
 function run(canvas: HTMLCanvasElement): void {
   const gl = getContext(canvas);
   const ff = createFixedFunction(gl, { debug: true });
-  //Cubo
-  const cubeData    = createBox(1, 1, 1);
-  const cubeVBuffer = createVertexBuffer(gl, cubeData.vertices);
-  const cubeIBuffer = createIndexBuffer(gl, cubeData.indices);
-  const cubeVao     = createVAO(gl, cubeVBuffer, cubeIBuffer);
-  //Cilindro
-  const cylinderData    = createCylinder(0.065, 0.5, 15);
-  const cylinderVBuffer = createVertexBuffer(gl, cylinderData.vertices);
-  const cylinderIBuffer = createIndexBuffer(gl, cylinderData.indices);
-  const cylinderVao     = createVAO(gl, cylinderVBuffer, cylinderIBuffer);
-  //Esfera
-  const sphereData    = createSphere(0.35, 24, 32);
-  const sphereVBuffer = createVertexBuffer(gl, sphereData.vertices);
-  const sphereIBuffer = createIndexBuffer(gl, sphereData.indices);
-  const sphereVao     = createVAO(gl, sphereVBuffer, sphereIBuffer);
+  // Cuerpo (cubo)
+  const bodyData    = createBox(1.0, BODY_HEIGHT, 0.8); 
+  const bodyVBuffer = createVertexBuffer(gl, bodyData.vertices);
+  const bodyIBuffer = createIndexBuffer(gl, bodyData.indices);
+  const bodyVao     = createVAO(gl, bodyVBuffer, bodyIBuffer);
 
-  //Esfera2
-  const sphereData2    = createSphere(0.50, 24, 32);
-  const sphereVBuffer2 = createVertexBuffer(gl, sphereData2.vertices);
-  const sphereIBuffer2 = createIndexBuffer(gl, sphereData2.indices);
-  const sphereVao2     = createVAO(gl, sphereVBuffer2, sphereIBuffer2);
+  // Torreta (esfera)
+  const turretData    = createSphere(TURRET_RADIUS, 24, 32);
+  const turretVBuffer = createVertexBuffer(gl, turretData.vertices);
+  const turretIBuffer = createIndexBuffer(gl, turretData.indices);
+  const turretVao     = createVAO(gl, turretVBuffer, turretIBuffer);
 
-  //Esfera3
-  const sphereData3    = createSphere(0.50, 24, 32);
-  const sphereVBuffer3 = createVertexBuffer(gl, sphereData3.vertices);
-  const sphereIBuffer3 = createIndexBuffer(gl, sphereData3.indices);
-  const sphereVao3     = createVAO(gl, sphereVBuffer3, sphereIBuffer3);  
+  // Cañon (cilindro abierto)
+  const cannonData    = createCylinder(CANNON_RADIUS, CANNON_LENGTH, 15);
+  const cannonVBuffer = createVertexBuffer(gl, cannonData.vertices);
+  const cannonIBuffer = createIndexBuffer(gl, cannonData.indices);
+  const cannonVao     = createVAO(gl, cannonVBuffer, cannonIBuffer);
 
-  //Mesa
-  const tableVerterx = createVertexBuffer(gl, TABLE);
-  const tableIndex  = createIndexBuffer(gl, TABLE_INDEX);
-  const tableVao = createVAO(gl, tableVerterx, tableIndex);
+  // Barras de fuerza (caja pequeña reutilizada 3 veces)
+  const barData    = createBox(BAR_WIDTH, BAR_HEIGHT, BAR_DEPTH);
+  const barVBuffer = createVertexBuffer(gl, barData.vertices);
+  const barIBuffer = createIndexBuffer(gl, barData.indices);
+  const barVao     = createVAO(gl, barVBuffer, barIBuffer);
+
+
+  // Bala (esfera negra, mas gorda que el cañon)
+  const bulletData    = createSphere(BULLET_RADIUS, 16, 24);
+  const bulletVBuffer = createVertexBuffer(gl, bulletData.vertices);
+  const bulletIBuffer = createIndexBuffer(gl, bulletData.indices);
+  const bulletVao     = createVAO(gl, bulletVBuffer, bulletIBuffer);
+
+  // Objetivos (una sola esfera reutilizada 3 veces)
+  const targetData    = createSphere(0.5, 24, 32);
+  const targetVBuffer = createVertexBuffer(gl, targetData.vertices);
+  const targetIBuffer = createIndexBuffer(gl, targetData.indices);
+  const targetVao     = createVAO(gl, targetVBuffer, targetIBuffer);
+
+  // Suelo
+  const tableVertices = createVertexBuffer(gl, TABLE);
+  const tableIndices  = createIndexBuffer(gl, TABLE_INDEX);
+  const tableVao      = createVAO(gl, tableVertices, tableIndices);
 
   setupState(gl, canvas);
   setupScene(ff);
   setupInput();
 
-  state.colorIndex = 2;
   let last: number | null = null; // set by the first frame, so dt starts at 0
   function frame(now: number): void {
     if (last === null) last = now;
@@ -274,9 +420,13 @@ function run(canvas: HTMLCanvasElement): void {
     update(dt);
     render(
     gl, ff,
-    cubeVao, tableVao,
-    cylinderVao, cylinderData.indices.length,
-    sphereVao, sphereVao2, sphereVao3,  sphereData.indices.length,
+    tableVao,
+    bodyVao,
+    barVao,
+    turretVao, turretData.indices.length,
+    cannonVao, cannonData.indices.length,
+    bulletVao, bulletData.indices.length,
+    targetVao, targetData.indices.length,
   );
     requestAnimationFrame(frame);
   }

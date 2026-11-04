@@ -69,7 +69,7 @@ export const TABLE = new Float32Array([
   -5,   0,  -20,   0,  1,  0,  // v3 fondo-izquierda
 ]);
 
-//Dos triángulos, CCW visto desde +Y
+//Dos triangulos, CCW visto desde +Y
 export const TABLE_INDEX = new Uint16Array([
   0, 1, 2,
   0, 2, 3,
@@ -80,3 +80,56 @@ export const FLOOR_AMBIENT: readonly [number, number, number, number] = [0x5a / 
 
 export const STRIDE_BYTES = 6 * 4; // 4 bytes per float (Float32)
 export const NORMAL_OFFSET_BYTES = 3 * 4;
+
+// Torreta
+export const BODY_HEIGHT   = 0.6;     
+export const TURRET_RADIUS = 0.35;     
+export const CANNON_RADIUS = 0.06;     
+export const CANNON_LENGTH = 1.0;      
+export const BULLET_RADIUS = 0.10;     
+
+// Indicador de fuerza (barras)
+export const BAR_WIDTH   = 0.5;
+export const BAR_HEIGHT  = 0.06;
+export const BAR_DEPTH   = 0.02;
+export const BAR_SPACING = 0.03;
+export const BODY_DEPTH  = 0.8;
+
+// Colores: verde oscuro (apagado) y verde claro (encendido)
+export const BAR_OFF_AMBIENT: readonly [number, number, number, number] = [0.0, 0.1, 0.0, 1];
+export const BAR_OFF_COLOR:   readonly [number, number, number, number] = [0.0, 0.3, 0.0, 1];
+
+export const BAR_ON_AMBIENT:  readonly [number, number, number, number] = [0.1, 0.4, 0.1, 1];
+export const BAR_ON_COLOR:    readonly [number, number, number, number] = [0.3, 0.9, 0.3, 1];
+
+// Multiplicadores de velocidad segun el nivel de fuerza (1, 2, 3)
+export const FORCE_MULTIPLIERS = [1.0, 1.5, 2.0];
+
+// Colores
+export const TURRET_AMBIENT: readonly [number, number, number, number] = [0.10, 0.10, 0.10, 1];
+export const TURRET_COLOR:   readonly [number, number, number, number] = [0.25, 0.25, 0.25, 1];
+
+export const CANNON_AMBIENT: readonly [number, number, number, number] = [0.05, 0.05, 0.05, 1];
+export const CANNON_COLOR:   readonly [number, number, number, number] = [0.18, 0.18, 0.18, 1];
+
+export const BULLET_AMBIENT: readonly [number, number, number, number] = [0.00, 0.00, 0.00, 1];
+export const BULLET_COLOR:   readonly [number, number, number, number] = [0.05, 0.05, 0.05, 1];
+
+//  Elevacion inicial (radianes)
+export const INITIAL_ELEVATION = (75 * Math.PI) / 180;
+
+// Limites de la torreta 
+export const X_MIN = -3.0;
+export const X_MAX =  3.0;
+
+// Limites de elevacion (radianes) 
+export const MIN_ELEVATION = (5  * Math.PI) / 180;   // 5°
+export const MAX_ELEVATION = (90 * Math.PI) / 180;   // 90°
+
+// Velocidades (por segundo)
+export const HORIZONTAL_SPEED = 3.0;   // unidades/segundo
+export const ELEVATION_SPEED  = 1.5;   // radianes/segundo
+
+// Fisica del proyectil 
+export const GRAVITY = 9.8;          // unidades/segundo al cuadradado
+export const BASE_SPEED = 8.0;       // velocidad inicial de la bala 
