@@ -120,6 +120,8 @@ const state = {
   },
 };
 
+const FAH = new Audio('/src/FAH.m4a');
+
 // keydown marca true. keyup marca false.
 // update() lee estos flags cada frame y mueve. No movemos en el evento.
 // ═══════════════════════════════════════════════════════════════
@@ -133,6 +135,7 @@ const keys = {
 let spacePressed = false;
 let rPressed     = false;
 let forceKey = 0;
+//let jPressed = false;
 
 function setupInput(): void {
   window.addEventListener('keydown', (e) => {
@@ -195,6 +198,14 @@ function processInput(): void {
     state.bullet.pos = [0, 0, 0];       
     state.x = 0;
     state.elev = INITIAL_ELEVATION;
+
+    // Reaparece las 3 esferas
+    for (const obj of objectives) {
+      obj.alive = true;
+    }
+
+    // Reinicia la fuerza
+    forceKey = 1;
   }
 
   // Consumir flags
@@ -220,10 +231,30 @@ function update(dt: number): void {
     state.bullet.pos[1] += state.bullet.vel[1] * dt;
     state.bullet.pos[2] += state.bullet.vel[2] * dt;
 
+    for (const obj of objectives) {
+      if (!obj.alive) continue; // Si ya está destruido, lo ignoramos
+
+      const dx = state.bullet.pos[0] - obj.pos[0];
+      const dy = state.bullet.pos[1] - obj.pos[1];
+      const dz = state.bullet.pos[2] - obj.pos[2];
+      const distSq = dx * dx + dy * dy + dz * dz;
+
+      // Radio de la bala + Radio del objetivo (0.5, según creaste el targetData)
+      const collisionDist = BULLET_RADIUS + 0.5;
+
+      if (distSq <= collisionDist * collisionDist) {
+        obj.alive = false;             // Desaparece el objetivo
+        state.bullet.status = 'ready'; // La bala desaparece / vuelve al cañón
+        break;                         // Salimos del loop porque la bala ya impactó
+      }
+    }    
+
     // Toco el suelo?
     if (state.bullet.pos[1] <= BULLET_RADIUS) {
       state.bullet.pos[1] = BULLET_RADIUS; 
-      state.bullet.status = 'ready';       
+      state.bullet.status = 'ready';
+      
+      FAH.play().catch(e => console.log("Audio bloqueado por el navegador:", e));
     }
   }
 
