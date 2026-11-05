@@ -141,10 +141,10 @@ function setupInput(): void {
 
     if (e.repeat) return;
 
-    if (e.code === 'ArrowLeft')  keys.left  = true;
-    if (e.code === 'ArrowRight') keys.right = true;
-    if (e.code === 'ArrowUp')    keys.up    = true;
-    if (e.code === 'ArrowDown')  keys.down  = true;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA')  keys.left  = true;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+    if (e.code === 'ArrowUp' || e.code === 'KeyW')    keys.up    = true;
+    if (e.code === 'ArrowDown' || e.code === 'KeyS')  keys.down  = true;
     if (e.code === 'Space')    spacePressed = true;
     if (e.code === 'KeyR')     rPressed     = true;
     if (e.code === 'Digit1') forceKey = 1;
@@ -154,10 +154,10 @@ function setupInput(): void {
   });
 
   window.addEventListener('keyup', (e) => {
-    if (e.code === 'ArrowLeft')  keys.left  = false;
-    if (e.code === 'ArrowRight') keys.right = false;
-    if (e.code === 'ArrowUp')    keys.up    = false;
-    if (e.code === 'ArrowDown')  keys.down  = false;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA')  keys.left  = false;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+    if (e.code === 'ArrowUp' || e.code === 'KeyW')    keys.up    = false;
+    if (e.code === 'ArrowDown' || e.code === 'KeyS')  keys.down  = false;
   });
 }
 
