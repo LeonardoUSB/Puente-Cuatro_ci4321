@@ -120,6 +120,7 @@ const state = {
   },
 };
 
+// Audio importante
 const FAH = new Audio('/src/FAH.m4a');
 
 // keydown marca true. keyup marca false.
@@ -135,7 +136,6 @@ const keys = {
 let spacePressed = false;
 let rPressed     = false;
 let forceKey = 0;
-//let jPressed = false;
 
 function setupInput(): void {
   window.addEventListener('keydown', (e) => {
@@ -231,8 +231,9 @@ function update(dt: number): void {
     state.bullet.pos[1] += state.bullet.vel[1] * dt;
     state.bullet.pos[2] += state.bullet.vel[2] * dt;
 
+    // Colisiones con esferas
     for (const obj of objectives) {
-      if (!obj.alive) continue; // Si ya está destruido, lo ignoramos
+      if (!obj.alive) continue; // Si la esfera ya no existe, se ignora este bucle
 
       const dx = state.bullet.pos[0] - obj.pos[0];
       const dy = state.bullet.pos[1] - obj.pos[1];
@@ -245,15 +246,17 @@ function update(dt: number): void {
       if (distSq <= collisionDist * collisionDist) {
         obj.alive = false;             // Desaparece el objetivo
         state.bullet.status = 'ready'; // La bala desaparece / vuelve al cañón
-        break;                         // Salimos del loop porque la bala ya impactó
+        break;                         // Salimos del bucle porque la bala ya impactó
       }
     }    
 
-    // Toco el suelo?
+    // La bala toca el suelo
     if (state.bullet.pos[1] <= BULLET_RADIUS) {
       state.bullet.pos[1] = BULLET_RADIUS; 
       state.bullet.status = 'ready';
       
+      // Se reproduce el audio importante para recordarle al jugador
+      // su carencia de habilidad y falta de manos
       FAH.play().catch(e => console.log("Audio bloqueado por el navegador:", e));
     }
   }
@@ -279,10 +282,11 @@ function update(dt: number): void {
 const model = mat4.create();
 const normalMatrix = mat3.create();
 
+// Coordenadas de las esferas/objetivos.
 const objectives = [
-  { pos: [-2.0, 1.8, -5.0] as const, alive: true },
-  { pos: [ 0.5, 2.2, -6.5] as const, alive: true },
-  { pos: [ 2.5, 1.6, -4.5] as const, alive: true },
+  { pos: [-2.0, 1.9, -8.0] as const, alive: true },
+  { pos: [ 0.5, 3.7, -15.5] as const, alive: true },
+  { pos: [ 2.5, 1.3, -4.5] as const, alive: true },
 ];
 
 function render(
@@ -377,7 +381,6 @@ function render(
   ff.setNormalMatrix(mat3.normalFromMat4(normalMatrix, model));
   gl.bindVertexArray(bulletVao);
   ff.drawElements(gl.TRIANGLES, bulletIndexCount, gl.UNSIGNED_SHORT, 0);
-
 
   // Objetivos 
   ff.setMaterial({ ambient: [0.35, 0.15, 0.10, 1], diffuse: [0.85, 0.35, 0.20, 1] });
