@@ -125,7 +125,6 @@ const FAH = new Audio('/src/FAH.m4a');
 
 // keydown marca true. keyup marca false.
 // update() lee estos flags cada frame y mueve. No movemos en el evento.
-// ═══════════════════════════════════════════════════════════════
 const keys = {
   left:  false,
   right: false,
