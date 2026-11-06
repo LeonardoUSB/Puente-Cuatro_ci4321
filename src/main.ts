@@ -239,7 +239,7 @@ function update(dt: number): void {
       const dz = state.bullet.pos[2] - obj.pos[2];
       const distSq = dx * dx + dy * dy + dz * dz;
 
-      // Radio de la bala + Radio del objetivo (0.5, según creaste el targetData)
+      // Radio de la bala + Radio del objetivo 
       const collisionDist = BULLET_RADIUS + 0.5;
 
       if (distSq <= collisionDist * collisionDist) {
